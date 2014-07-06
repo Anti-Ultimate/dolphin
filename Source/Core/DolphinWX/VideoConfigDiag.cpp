@@ -585,7 +585,7 @@ VideoConfigDiag::VideoConfigDiag(wxWindow* parent, const std::string &title, con
 
 	//Adapter Selection
 	//Only show this when D3D11 is activated
-	if (_ininame == "gfx_dx11")
+	if (vconfig.backend_info.Adapters.size())
 	{
 		wxCheckBox* const cb_enable_adapter_selection = new wxCheckBox(page_advanced, wxID_ANY, _("Enable Adapter selection"));
 		RegisterControl(cb_enable_adapter_selection, wxGetTranslation(adapter_select_desc));
