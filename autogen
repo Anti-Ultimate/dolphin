@@ -1,1 +1,1 @@
-cmake -DENABLE_EVDEV=OFF -DENABLE_SDL=ON
+./configure
