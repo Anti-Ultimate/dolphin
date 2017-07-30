@@ -58,7 +58,6 @@ BuildRequires:  miniupnpc-devel
 BuildRequires:  openal-soft-devel
 #polarssl is now mbedtls:
 BuildRequires:  mbedtls-devel
-BuildRequires:  portaudio-devel
 BuildRequires:  SDL2-devel
 BuildRequires:  SFML-devel
 BuildRequires:  SOIL-devel
@@ -71,7 +70,6 @@ BuildRequires:  libSDL2-devel
 BuildRequires:  libSOIL-devel
 BuildRequires:  lzo-devel
 BuildRequires:  openal-devel
-BuildRequires:  portaudio-devel
 BuildRequires:  sfml-devel
 BuildRequires:  soundtouch-devel
 BuildRequires:  update-desktop-files
@@ -138,7 +136,8 @@ make %{?_smp_mflags} install DESTDIR="%{?buildroot}"
 %doc license.txt Readme.md
 %{_bindir}/%{name}
 %{_datadir}/%{name}
-%{_datadir}/pixmaps/dolphin-emu.xpm
+%{_datadir}/icons/hicolor/48x48/apps/%{name}.*
+%{_datadir}/icons/hicolor/scalable/apps/%{name}.*
 %{_datadir}/applications/%{name}.desktop
 %{_mandir}/man6/%{name}.*
 

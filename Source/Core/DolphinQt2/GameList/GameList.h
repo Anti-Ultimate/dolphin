@@ -13,48 +13,55 @@
 #include "DolphinQt2/GameList/GameFile.h"
 #include "DolphinQt2/GameList/GameListModel.h"
 
-class TableDelegate;
-
 class GameList final : public QStackedWidget
 {
-	Q_OBJECT
+  Q_OBJECT
 
 public:
-	explicit GameList(QWidget* parent = nullptr);
-	QString GetSelectedGame() const;
+  explicit GameList(QWidget* parent = nullptr);
+  QString GetSelectedGame() const;
 
-public slots:
-	void SetTableView() { SetPreferredView(true); }
-	void SetListView() { SetPreferredView(false); }
-	void SetViewColumn(int col, bool view) { m_table->setColumnHidden(col, !view); }
-
-private slots:
-	void ShowContextMenu(const QPoint&);
-	void OpenWiki();
-	void SetDefaultISO();
+  void SetTableView() { SetPreferredView(true); }
+  void SetListView() { SetPreferredView(false); }
+  void SetViewColumn(int col, bool view) { m_table->setColumnHidden(col, !view); }
+  void OnColumnVisibilityToggled(const QString& row, bool visible);
+  void OnGameListVisibilityChanged();
 
 signals:
-	void GameSelected();
-	void DirectoryAdded(const QString& dir);
-	void DirectoryRemoved(const QString& dir);
+  void GameSelected();
+  void EmulationStarted();
+  void EmulationStopped();
 
 private:
-	void MakeTableView();
-	void MakeListView();
-	void MakeEmptyView();
-	// We only have two views, just use a bool to distinguish.
-	void SetPreferredView(bool table);
-	void ConsiderViewChange();
+  void ShowContextMenu(const QPoint&);
+  void OpenContainingFolder();
+  void OpenProperties();
+  void OpenSaveFolder();
+  void OpenWiki();
+  void SetDefaultISO();
+  void DeleteFile();
+  void InstallWAD();
+  void UninstallWAD();
+  void ExportWiiSave();
+  void CompressISO();
+  void OnHeaderViewChanged();
 
-	GameListModel* m_model;
-	TableDelegate* m_delegate;
-	QSortFilterProxyModel* m_table_proxy;
-	QSortFilterProxyModel* m_list_proxy;
+  void MakeTableView();
+  void MakeListView();
+  void MakeEmptyView();
+  // We only have two views, just use a bool to distinguish.
+  void SetPreferredView(bool table);
+  void ConsiderViewChange();
 
-	QListView* m_list;
-	QTableView* m_table;
-	QLabel* m_empty;
-	bool m_prefer_table;
+  GameListModel* m_model;
+  QSortFilterProxyModel* m_table_proxy;
+  QSortFilterProxyModel* m_list_proxy;
+
+  QListView* m_list;
+  QTableView* m_table;
+  QLabel* m_empty;
+  bool m_prefer_table;
+
 protected:
-	void keyReleaseEvent(QKeyEvent* event) override;
+  void keyReleaseEvent(QKeyEvent* event) override;
 };

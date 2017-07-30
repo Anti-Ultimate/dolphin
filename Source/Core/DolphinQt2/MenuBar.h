@@ -4,82 +4,110 @@
 
 #pragma once
 
+#include <string>
+
 #include <QMenu>
 #include <QMenuBar>
 
 class MenuBar final : public QMenuBar
 {
-	Q_OBJECT
+  Q_OBJECT
 
 public:
-	explicit MenuBar(QWidget* parent = nullptr);
+  explicit MenuBar(QWidget* parent = nullptr);
+
+  void EmulationStarted();
+  void EmulationPaused();
+  void EmulationStopped();
+  void UpdateStateSlotMenu();
+  void UpdateToolsMenu(bool emulation_started);
+
+  // Tools
+  void InstallWAD();
 
 signals:
-	// File
-	void Open();
-	void Exit();
+  // File
+  void Open();
+  void Exit();
 
-	// Emulation
-	void Play();
-	void Pause();
-	void Stop();
-	void Reset();
-	void Fullscreen();
-	void FrameAdvance();
-	void Screenshot();
-	void StateLoad();
-	void StateSave();
-	void StateLoadSlot();
-	void StateSaveSlot();
-	void StateLoadSlotAt(int slot);
-	void StateSaveSlotAt(int slot);
-	void StateLoadUndo();
-	void StateSaveUndo();
-	void StateSaveOldest();
-	void SetStateSlot(int slot);
+  // Emulation
+  void Play();
+  void Pause();
+  void Stop();
+  void Reset();
+  void Fullscreen();
+  void FrameAdvance();
+  void Screenshot();
+  void StateLoad();
+  void StateSave();
+  void StateLoadSlot();
+  void StateSaveSlot();
+  void StateLoadSlotAt(int slot);
+  void StateSaveSlotAt(int slot);
+  void StateLoadUndo();
+  void StateSaveUndo();
+  void StateSaveOldest();
+  void SetStateSlot(int slot);
+  void BootWiiSystemMenu();
 
-	// View
-	void ShowTable();
-	void ShowList();
+  void PerformOnlineUpdate(const std::string& region);
 
-	void ShowAboutDialog();
+  // Options
+  void Configure();
+  void ConfigureGraphics();
+  void ConfigureAudio();
+  void ConfigureControllers();
+  void ConfigureHotkeys();
 
-public slots:
-	void EmulationStarted();
-	void EmulationPaused();
-	void EmulationStopped();
-	void UpdateStateSlotMenu();
+  // View
+  void ShowTable();
+  void ShowList();
+  void ColumnVisibilityToggled(const QString& row, bool visible);
+  void GameListPlatformVisibilityToggled(const QString& row, bool visible);
+  void GameListRegionVisibilityToggled(const QString& row, bool visible);
+
+  void ShowAboutDialog();
 
 private:
-	void AddFileMenu();
+  void AddFileMenu();
 
-	void AddEmulationMenu();
-	void AddStateLoadMenu(QMenu* emu_menu);
-	void AddStateSaveMenu(QMenu* emu_menu);
-	void AddStateSlotMenu(QMenu* emu_menu);
+  void AddEmulationMenu();
+  void AddStateLoadMenu(QMenu* emu_menu);
+  void AddStateSaveMenu(QMenu* emu_menu);
+  void AddStateSlotMenu(QMenu* emu_menu);
 
-	void AddViewMenu();
-	void AddGameListTypeSection(QMenu* view_menu);
-	void AddTableColumnsMenu(QMenu* view_menu);
+  void AddViewMenu();
+  void AddGameListTypeSection(QMenu* view_menu);
+  void AddTableColumnsMenu(QMenu* view_menu);
+  void AddShowPlatformsMenu(QMenu* view_menu);
+  void AddShowRegionsMenu(QMenu* view_menu);
 
-	void AddHelpMenu();
+  void AddOptionsMenu();
+  void AddToolsMenu();
+  void AddHelpMenu();
 
-	// File
-	QAction* m_open_action;
-	QAction* m_exit_action;
+  // File
+  QAction* m_open_action;
+  QAction* m_exit_action;
 
-	// Emulation
-	QAction* m_play_action;
-	QAction* m_pause_action;
-	QAction* m_stop_action;
-	QAction* m_reset_action;
-	QAction* m_fullscreen_action;
-	QAction* m_frame_advance_action;
-	QAction* m_screenshot_action;
-	QMenu* m_state_load_menu;
-	QMenu* m_state_save_menu;
-	QMenu* m_state_slot_menu;
-	QActionGroup* m_state_slots;
-	QMenu* m_state_load_slots_menu;
-	QMenu* m_state_save_slots_menu;
+  // Tools
+  QAction* m_wad_install_action;
+  QMenu* m_perform_online_update_menu;
+  QAction* m_perform_online_update_for_current_region;
+
+  // Emulation
+  QAction* m_play_action;
+  QAction* m_pause_action;
+  QAction* m_stop_action;
+  QAction* m_reset_action;
+  QAction* m_fullscreen_action;
+  QAction* m_frame_advance_action;
+  QAction* m_screenshot_action;
+  QAction* m_boot_sysmenu;
+  QMenu* m_state_load_menu;
+  QMenu* m_state_save_menu;
+  QMenu* m_state_slot_menu;
+  QActionGroup* m_state_slots;
+  QMenu* m_state_load_slots_menu;
+  QMenu* m_state_save_slots_menu;
 };

@@ -2,127 +2,112 @@
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
 
+#include <array>
+#include <cstddef>
 #include <memory>
+#include <numeric>
 #include <string>
 
 #include "Common/CommonPaths.h"
+#include "Common/CommonTypes.h"
+#include "Common/File.h"
 #include "Common/FileUtil.h"
+#include "Common/MsgHandler.h"
 #include "Common/NandPaths.h"
 
-#include "Core/ConfigManager.h"
-#include "Core/PatchEngine.h"
 #include "Core/Boot/Boot.h"
-#include "Core/Boot/Boot_DOL.h"
-#include "Core/HLE/HLE.h"
-#include "Core/HW/Memmap.h"
-#include "Core/HW/VideoInterface.h"
-#include "Core/IPC_HLE/WII_IPC_HLE.h"
-#include "Core/IPC_HLE/WII_IPC_HLE_Device_FileIO.h"
-#include "Core/PowerPC/PowerPC.h"
+#include "Core/CommonTitles.h"
+#include "Core/IOS/ES/ES.h"
+#include "Core/IOS/ES/Formats.h"
+#include "Core/IOS/FS/FileIO.h"
+#include "Core/IOS/IOS.h"
 
 #include "DiscIO/NANDContentLoader.h"
-#include "DiscIO/Volume.h"
-#include "DiscIO/VolumeCreator.h"
-#include "DiscIO/WiiWad.h"
-
-static u32 state_checksum(u32 *buf, int len)
-{
-	u32 checksum = 0;
-	len = len >> 2;
-
-	for (int i = 0; i < len; i++)
-	{
-		checksum += buf[i];
-	}
-
-	return checksum;
-}
 
 struct StateFlags
 {
-	u32 checksum;
-	u8 flags;
-	u8 type;
-	u8 discstate;
-	u8 returnto;
-	u32 unknown[6];
+  u32 checksum;
+  u8 flags;
+  u8 type;
+  u8 discstate;
+  u8 returnto;
+  u32 unknown[6];
 };
+
+static u32 StateChecksum(const StateFlags& flags)
+{
+  constexpr size_t length_in_bytes = sizeof(StateFlags) - 4;
+  constexpr size_t num_elements = length_in_bytes / sizeof(u32);
+  std::array<u32, num_elements> flag_data;
+
+  std::memcpy(flag_data.data(), &flags.flags, length_in_bytes);
+
+  return std::accumulate(flag_data.cbegin(), flag_data.cend(), 0U);
+}
 
 bool CBoot::Boot_WiiWAD(const std::string& _pFilename)
 {
-	std::string state_filename(Common::GetTitleDataPath(TITLEID_SYSMENU, Common::FROM_SESSION_ROOT) + WII_STATE);
+  std::string state_filename(
+      Common::GetTitleDataPath(Titles::SYSTEM_MENU, Common::FROM_SESSION_ROOT) + WII_STATE);
 
-	if (File::Exists(state_filename))
-	{
-		File::IOFile state_file(state_filename, "r+b");
-		StateFlags state;
-		state_file.ReadBytes(&state, sizeof(StateFlags));
+  if (File::Exists(state_filename))
+  {
+    File::IOFile state_file(state_filename, "r+b");
+    StateFlags state;
+    state_file.ReadBytes(&state, sizeof(StateFlags));
 
-		state.type = 0x03; // TYPE_RETURN
-		state.checksum = state_checksum((u32*)&state.flags, sizeof(StateFlags) - 4);
+    state.type = 0x03;  // TYPE_RETURN
+    state.checksum = StateChecksum(state);
 
-		state_file.Seek(0, SEEK_SET);
-		state_file.WriteBytes(&state, sizeof(StateFlags));
-	}
-	else
-	{
-		File::CreateFullPath(state_filename);
-		File::IOFile state_file(state_filename, "a+b");
-		StateFlags state;
-		memset(&state, 0, sizeof(StateFlags));
-		state.type = 0x03; // TYPE_RETURN
-		state.discstate = 0x01; // DISCSTATE_WII
-		state.checksum = state_checksum((u32*)&state.flags, sizeof(StateFlags) - 4);
-		state_file.WriteBytes(&state, sizeof(StateFlags));
-	}
+    state_file.Seek(0, SEEK_SET);
+    state_file.WriteBytes(&state, sizeof(StateFlags));
+  }
+  else
+  {
+    File::CreateFullPath(state_filename);
+    File::IOFile state_file(state_filename, "a+b");
+    StateFlags state;
+    memset(&state, 0, sizeof(StateFlags));
+    state.type = 0x03;       // TYPE_RETURN
+    state.discstate = 0x01;  // DISCSTATE_WII
+    state.checksum = StateChecksum(state);
+    state_file.WriteBytes(&state, sizeof(StateFlags));
+  }
 
-	const DiscIO::CNANDContentLoader& ContentLoader = DiscIO::CNANDContentManager::Access().GetNANDLoader(_pFilename);
-	if (!ContentLoader.IsValid())
-		return false;
+  const DiscIO::NANDContentLoader& ContentLoader =
+      DiscIO::NANDContentManager::Access().GetNANDLoader(_pFilename);
+  if (!ContentLoader.IsValid())
+    return false;
 
-	u64 titleID = ContentLoader.GetTitleID();
-	// create data directory
-	File::CreateFullPath(Common::GetTitleDataPath(titleID, Common::FROM_SESSION_ROOT));
+  u64 titleID = ContentLoader.GetTMD().GetTitleId();
 
-	if (titleID == TITLEID_SYSMENU)
-		HLE_IPC_CreateVirtualFATFilesystem();
-	// setup Wii memory
-	if (!SetupWiiMemory(ContentLoader.GetCountry()))
-		return false;
-	// this sets a bit that is used to detect NTSC-J
-	if (ContentLoader.GetCountry() == DiscIO::IVolume::COUNTRY_JAPAN)
-	{
-		VideoInterface::SetRegionReg('J');
-	}
-	// DOL
-	const DiscIO::SNANDContent* pContent = ContentLoader.GetContentByIndex(ContentLoader.GetBootIndex());
-	if (pContent == nullptr)
-		return false;
+  if (!IOS::ES::IsChannel(titleID))
+  {
+    PanicAlertT("This WAD is not bootable.");
+    return false;
+  }
 
-	WII_IPC_HLE_Interface::SetDefaultContentFile(_pFilename);
+  // create data directory
+  File::CreateFullPath(Common::GetTitleDataPath(titleID, Common::FROM_SESSION_ROOT));
 
-	std::unique_ptr<CDolLoader> pDolLoader = std::make_unique<CDolLoader>(pContent->m_Data->Get());
-	if (!pDolLoader->IsValid())
-		return false;
+  if (titleID == Titles::SYSTEM_MENU)
+    IOS::HLE::CreateVirtualFATFilesystem();
+  // setup Wii memory
 
-	pDolLoader->Load();
-	PC = pDolLoader->GetEntryPoint();
+  if (!SetupWiiMemory(nullptr, ContentLoader.GetTMD().GetIOSId()))
+    return false;
 
-	// Pass the "#002 check"
-	// Apploader should write the IOS version and revision to 0x3140, and compare it
-	// to 0x3188 to pass the check, but we don't do it, and i don't know where to read the IOS rev...
-	// Currently we just write 0xFFFF for the revision, copy manually and it works fine :p
+  IOS::HLE::Device::ES::LoadWAD(_pFilename);
 
-	// TODO : figure it correctly : where should we read the IOS rev that the wad "needs" ?
-	Memory::Write_U16(ContentLoader.GetIosVersion(), 0x00003140);
-	Memory::Write_U16(0xFFFF, 0x00003142);
-	Memory::Write_U32(Memory::Read_U32(0x00003140), 0x00003188);
+  // TODO: kill these manual calls and just use ES_Launch here, as soon as the direct WAD
+  //       launch hack is dropped.
+  auto* ios = IOS::HLE::GetIOS();
+  IOS::ES::UIDSys uid_map{Common::FROM_SESSION_ROOT};
+  ios->SetUidForPPC(uid_map.GetOrInsertUIDForTitle(titleID));
+  ios->SetGidForPPC(ContentLoader.GetTMD().GetGroupId());
 
-	// Load patches and run startup patches
-	const std::unique_ptr<DiscIO::IVolume> pVolume(DiscIO::CreateVolumeFromFilename(_pFilename));
-	if (pVolume != nullptr)
-		PatchEngine::LoadPatches();
+  if (!ios->BootstrapPPC(ContentLoader))
+    return false;
 
-	return true;
+  return true;
 }
-

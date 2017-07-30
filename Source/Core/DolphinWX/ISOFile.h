@@ -5,104 +5,136 @@
 #pragma once
 
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "Common/Common.h"
-#include "DiscIO/Blob.h"
-#include "DiscIO/Volume.h"
 
-#if defined(HAVE_WX) && HAVE_WX
-#include <wx/image.h>
 #include <wx/bitmap.h>
-#endif
+#include <wx/image.h>
+
+namespace Core
+{
+class TitleDatabase;
+}
+
+namespace DiscIO
+{
+enum class BlobType;
+enum class Country;
+enum class Language;
+enum class Region;
+enum class Platform;
+}
 
 class PointerWrap;
+
 class GameListItem
 {
 public:
-	GameListItem(const std::string& _rFileName, const std::unordered_map<std::string, std::string>& custom_titles);
-	~GameListItem();
+  GameListItem() = default;
+  explicit GameListItem(const std::string& file_name);
+  ~GameListItem() = default;
 
-	// Reload settings after INI changes
-	void ReloadINI();
-
-	bool IsValid() const {return m_Valid;}
-	const std::string& GetFileName() const {return m_FileName;}
-	std::string GetName(DiscIO::IVolume::ELanguage language) const;
-	std::string GetName() const;
-	std::string GetDescription(DiscIO::IVolume::ELanguage language) const;
-	std::string GetDescription() const;
-	std::vector<DiscIO::IVolume::ELanguage> GetLanguages() const;
-	std::string GetCompany() const { return m_company; }
-	u16 GetRevision() const { return m_Revision; }
-	const std::string& GetUniqueID() const {return m_UniqueID;}
-	const std::string GetWiiFSPath() const;
-	DiscIO::IVolume::ECountry GetCountry() const {return m_Country;}
-	DiscIO::IVolume::EPlatform GetPlatform() const { return m_Platform; }
-	DiscIO::BlobType GetBlobType() const { return m_blob_type; }
-	const std::string& GetIssues() const { return m_issues; }
-	int GetEmuState() const { return m_emu_state; }
-	bool IsCompressed() const
-	{
-		return m_blob_type == DiscIO::BlobType::GCZ || m_blob_type == DiscIO::BlobType::CISO ||
-		       m_blob_type == DiscIO::BlobType::WBFS;
-	}
-	u64 GetFileSize() const {return m_FileSize;}
-	u64 GetVolumeSize() const {return m_VolumeSize;}
-	// 0 is the first disc, 1 is the second disc
-	u8 GetDiscNumber() const { return m_disc_number; }
-
-#if defined(HAVE_WX) && HAVE_WX
-	const wxBitmap& GetBitmap() const {return m_Bitmap;}
-#endif
-
-	void DoState(PointerWrap &p);
+  bool IsValid() const;
+  const std::string& GetFileName() const { return m_file_name; }
+  std::string GetName(DiscIO::Language language) const;
+  std::string GetName() const;
+  std::string GetUniqueIdentifier() const;
+  std::string GetDescription(DiscIO::Language language) const;
+  std::string GetDescription() const;
+  std::vector<DiscIO::Language> GetLanguages() const;
+  std::string GetCompany() const { return m_company; }
+  u16 GetRevision() const { return m_revision; }
+  const std::string& GetGameID() const { return m_game_id; }
+  u64 GetTitleID() const { return m_title_id; }
+  const std::string GetWiiFSPath() const;
+  DiscIO::Region GetRegion() const { return m_region; }
+  DiscIO::Country GetCountry() const { return m_country; }
+  DiscIO::Platform GetPlatform() const { return m_platform; }
+  DiscIO::BlobType GetBlobType() const { return m_blob_type; }
+  const std::string& GetIssues() const { return m_emu_state.issues; }
+  int GetEmuState() const { return m_emu_state.rating; }
+  u64 GetFileSize() const { return m_file_size; }
+  u64 GetVolumeSize() const { return m_volume_size; }
+  // 0 is the first disc, 1 is the second disc
+  u8 GetDiscNumber() const { return m_disc_number; }
+  // NOTE: Banner image is at the original resolution, use WxUtils::ScaleImageToBitmap
+  //   to display it
+  const wxImage& GetBannerImage() const { return m_banner_wx; }
+  void DoState(PointerWrap& p);
+  bool BannerChanged();
+  void BannerCommit();
+  bool EmuStateChanged();
+  void EmuStateCommit();
+  bool CustomNameChanged(const Core::TitleDatabase& title_database);
+  void CustomNameCommit();
 
 private:
-	std::string m_FileName;
+  struct EmuState
+  {
+    int rating{};
+    std::string issues{};
+    bool operator!=(const EmuState& rhs) const
+    {
+      return rating != rhs.rating || issues != rhs.issues;
+    }
+    void DoState(PointerWrap& p);
+  };
+  struct Banner
+  {
+    std::vector<u8> buffer{};
+    int width{};
+    int height{};
+    bool empty() const { return buffer.empty(); }
+    void DoState(PointerWrap& p);
+  };
 
-	std::map<DiscIO::IVolume::ELanguage, std::string> m_names;
-	std::map<DiscIO::IVolume::ELanguage, std::string> m_descriptions;
-	std::string m_company;
+  bool IsElfOrDol() const;
+  void ReadVolumeBanner(std::vector<u8>* image, const std::vector<u32>& buffer, int width,
+                        int height);
+  // Outputs to m_banner_wx
+  bool SetWxBannerFromPNGFile(const std::string& path);
+  // Outputs to m_banner_wx
+  void SetWxBannerFromRaw(const Banner& banner);
 
-	std::string m_UniqueID;
-	u64 m_title_id;
+  // IMPORTANT: Nearly all data members must be save/restored in DoState.
+  // If anything is changed, make sure DoState handles it properly and
+  // GameListCtrl::CACHE_REVISION is incremented.
 
-	std::string m_issues;
-	int m_emu_state;
+  bool m_valid{};
+  std::string m_file_name{};
 
-	u64 m_FileSize;
-	u64 m_VolumeSize;
+  u64 m_file_size{};
+  u64 m_volume_size{};
 
-	DiscIO::IVolume::ECountry m_Country;
-	DiscIO::IVolume::EPlatform m_Platform;
-	DiscIO::BlobType m_blob_type;
-	u16 m_Revision;
+  std::map<DiscIO::Language, std::string> m_names{};
+  std::map<DiscIO::Language, std::string> m_descriptions{};
+  std::string m_company{};
+  std::string m_game_id{};
+  u64 m_title_id{};
 
-#if defined(HAVE_WX) && HAVE_WX
-	wxBitmap m_Bitmap;
-#endif
-	bool m_Valid;
-	std::vector<u8> m_pImage;
-	int m_ImageWidth, m_ImageHeight;
-	u8 m_disc_number;
+  DiscIO::Region m_region{};
+  DiscIO::Country m_country{};
+  DiscIO::Platform m_platform{};
+  DiscIO::BlobType m_blob_type{};
+  u16 m_revision{};
+  u8 m_disc_number{};
 
-	std::string m_custom_name_titles_txt; // Custom title from titles.txt
-	std::string m_custom_name;            // Custom title from INI or titles.txt
-	bool m_has_custom_name;
+  Banner m_volume_banner{};
+  EmuState m_emu_state{};
+  // Overridden name from TitleDatabase
+  std::string m_custom_name{};
 
-	bool LoadFromCache();
-	void SaveToCache();
+  // wxImage is not handled in DoState
+  wxImage m_banner_wx{};
 
-	bool IsElfOrDol() const;
-	std::string CreateCacheFilename() const;
-
-	// Outputs to m_pImage
-	void ReadVolumeBanner(const std::vector<u32>& buffer, int width, int height);
-	// Outputs to m_Bitmap
-	bool ReadPNGBanner(const std::string& path);
-
-	static wxBitmap ScaleBanner(wxImage* image);
+  // The following data members allow GameListCtrl to construct new GameListItems in a threadsafe
+  // way. They should not be handled in DoState.
+  struct
+  {
+    EmuState emu_state;
+    Banner volume_banner;
+    std::string custom_name;
+  } m_pending{};
 };

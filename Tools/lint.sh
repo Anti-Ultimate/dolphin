@@ -1,37 +1,42 @@
-#! /bin/sh
+#! /bin/bash
 #
 # Linter script that checks for common style issues in Dolphin's codebase.
 
-REPO_BASE=$(realpath $(dirname $0)/..)
+set -euo pipefail
 
 fail=0
 
-# Step 1: check for includes ordering.
-echo "[.] Checking #include statements ordering."
-res=$(
-  ${REPO_BASE}/Tools/check-includes.py \
-      $(find ${REPO_BASE}/Source/Core -name "*.cpp" -o -name "*.h") \
-      2>&1 \
-      >/dev/null
-)
-if [ -n "${res}" ]; then
-  echo "FAIL: ${res}"
-  fail=1
-else
-  echo "OK"
-fi
+# Default to staged files, unless a commit was passed.
+COMMIT=${1:---cached}
 
-# Step 2: check for trailing whitespaces.
-echo "[.] Checking for trailing whitespaces."
-res=$(
-    find ${REPO_BASE}/Source/Core -name "*.cpp" -o -name "*.h" \
-        | xargs egrep -n "\s+$"
-)
-if [ -n "$res" ]; then
-  echo "FAIL: ${res}"
-  fail=1
-else
-  echo "OK"
-fi
+# Get modified files (must be on own line for exit-code handling)
+modified_files=$(git diff --name-only --diff-filter=ACMRTUXB $COMMIT)
+
+# Loop through each modified file.
+for f in ${modified_files}; do
+  # Filter them.
+  if ! echo "${f}" | egrep -q "[.](cpp|h|mm)$"; then
+    continue
+  fi
+  if ! echo "${f}" | egrep -q "^Source/Core"; then
+    continue
+  fi
+
+  # Check for clang-format issues.
+  d=$(clang-format ${f} | (diff -u "${f}" - || true))
+  if ! [ -z "${d}" ]; then
+    echo "!!! ${f} not compliant to coding style, here is the fix:"
+    echo "${d}"
+    fail=1
+  fi
+
+  # Check for newline at EOF.
+  last_line="$(tail -c 1 ${f})"
+  if [ -n "${last_line}" ]; then
+    echo "!!! ${f} not compliant to coding style:"
+    echo "Missing newline at end of file"
+    fail=1
+  fi
+done
 
 exit ${fail}
