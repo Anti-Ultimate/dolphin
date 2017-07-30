@@ -13,6 +13,10 @@ git:
   submodules: false
 
 before_script:
+  - wget https://cmake.org/files/v3.9/cmake-3.9.0.tar.gz
+  - ./bootstrap
+  - make
+  - sudo make install
   - mkdir Build
   - cd Build
   - CC=gcc-5 CXX=g++-5 cmake .. -DCMAKE_INSTALL_PREFIX=/usr
@@ -49,7 +53,6 @@ addons:
     sources:
       - ubuntu-toolchain-r-test
     packages:
-      - cmake
       - pkg-config
       - git
       - gcc-5
