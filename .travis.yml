@@ -1,0 +1,77 @@
+language: cpp
+sudo: required
+dist: trusty
+
+os:
+  - linux
+
+compiler:
+  - gcc
+  
+
+git:
+  submodules: false
+
+before_script:
+  - mkdir Build
+  - cd Build
+  - CC=gcc-5 CXX=g++-5 cmake .. -DCMAKE_INSTALL_PREFIX=/usr
+  - make -j 3
+  - make DESTDIR=dolphin-emu.AppDir install
+  - # AppImage generation
+  - if [ "$TRAVIS_BRANCH" = "master" ] && then
+      wget -q https://github.com/probonopd/AppImages/raw/master/functions.sh -O ./functions.sh
+      . ./functions.sh
+      VER=$(git rev-list 5.0.. --count)
+      BRANCH=$(git rev-parse --abbrev-ref HEAD)
+      cd dolphin-emu.AppDir
+      get_apprun
+      copy_deps
+      move_lib
+      delete_blacklisted
+      mv ./usr/lib/x86_64-linux-gnu/pulseaudio/libpulsecommon-4.0.so ./usr/lib/x86_64-linux-gnu/libpulsecommon-4.0.so
+      rm -rf ./usr/lib/x86_64-linux-gnu/pulseaudio/
+      rm -rf ./usr/lib/x86_64-linux-gnu/mesa/
+      get_desktop
+      cp ./usr/share/icons/hicolor/48x48/apps/dolphin-emu.png dolphin-emu.png
+      patch_usr 
+      cd ..
+      ARCH="x86_64"
+      APP="dolphin-emu"
+      VERSION="$BRANCH-5.0-$VER"
+      generate_appimage
+   fi;
+
+script:
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - cmake
+      - pkg-config
+      - git
+      - gcc-5
+      - g++-5
+      - libao-dev 
+      - libasound2-dev 
+      - libavcodec-dev 
+      - libavformat-dev 
+      - libbluetooth-dev 
+      - libcurl4-openssl-dev 
+      - libgtk2.0-dev 
+      - liblzo2-dev 
+      - libopenal-dev 
+      - libpulse-dev 
+      - libreadline-dev 
+      - libsfml-dev 
+      - libsoil-dev 
+      - libswscale-dev 
+      - libusb-1.0-0-dev 
+      - libxext-dev 
+      - libxrandr-dev 
+      - portaudio19-dev 
+      - zlib1g-dev 
+      - libudev-dev 
+      - libevdev-dev
