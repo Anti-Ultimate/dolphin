@@ -14,10 +14,12 @@ git:
 
 before_script:
   - wget https://cmake.org/files/v3.9/cmake-3.9.0.tar.gz
+  - tar -xzvf cmake-3.9.0.tar.gz
   - cd cmake-3.9.0
   - ./bootstrap
   - make
   - sudo make install
+  - cd ..
   - mkdir Build
   - cd Build
   - CC=gcc-5 CXX=g++-5 cmake .. -DCMAKE_INSTALL_PREFIX=/usr
